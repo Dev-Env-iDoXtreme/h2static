@@ -18,11 +18,29 @@ It provides a few handy features for serving files and static websites:
 * serve `index.html`/`index.htm` files for the contaning directory
 * serve the corresponding `.html`/`.htm` file for a path without the suffix
   (when such path doesn't exist)
+  
+
+HTML directory listing provides a responsive design to support both desktop
+
+<p align="center"><img alt="Desktop page" src="images/screen-1.jpg" width="90%"/></p>
+
+and mobile
+
+<p align="center"><img alt="Mobile page" src="images/screen-2.jpg" width="40%"/></p>
+
+
+## Install
 
 Pre-built binaries are available for different achitectures on the [releases
 page](https://github.com/albertodonato/h2static/releases).
 
-Alternatively, it can be run simply as
+It can be installed directly via
+
+```bash
+go install github.com/albertodonato/h2static/cmd/h2static@latest
+```
+
+Alternatively, it can be run from the repository simply as
 
 ```bash
 go run ./cmd/h2static
@@ -118,6 +136,8 @@ Usage of h2static:
         password file for Basic Auth (each line should be in the form "user:SHA512-hash")
   -css string
         file to override builtin CSS for listing
+  -debug-addr string
+        address and port to serve /debug URLs on
   -dir string
         directory to serve (default ".")
   -disable-h2
@@ -136,6 +156,8 @@ Usage of h2static:
         certificate file for TLS connections
   -tls-key string
         key file for TLS connections
+  -version
+        print program version and exit
 ```
 
 
@@ -155,3 +177,21 @@ automatically.  See `snap info h2static` for details about the available snap
 settings.
 
 [![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-black.svg)](https://snapcraft.io/h2static)
+
+
+### Snap setup with Let's Encrypt certificates
+
+Assuming [Certbot](https://certbot.eff.org/) is already set up to handle
+certificate renewals for the domain, a simple hook can be added to update
+certificates for `h2static`.  The hook could be written to
+`/etc/letsencrypt/renewal-hooks/post/h2static` with the following content:
+
+
+```bash
+#!/bin/bash
+
+DOMAIN="example.com"
+CERTSDIR="/etc/letsencrypt/live/$DOMAIN"
+
+snap set h2static tls.cert="$(<$CERTSDIR/fullchain.pem)" tls.key="$(<$CERTSDIR/privkey.pem)"
+```

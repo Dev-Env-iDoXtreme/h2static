@@ -34,6 +34,11 @@ func NewFileHandler(fileSystem FileSystem, directoryIndex bool, pathPrefix strin
 
 // ServeHTTP handles a request for the static file serve.
 func (f FileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if method := strings.ToUpper(r.Method); method != http.MethodGet && method != http.MethodHead {
+		writeHTTPError(w, http.StatusMethodNotAllowed)
+		return
+	}
+
 	urlPath := r.URL.Path
 	if !strings.HasPrefix(urlPath, "/") {
 		urlPath = "/" + urlPath
@@ -152,11 +157,14 @@ func (h LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h LoggingHandler) getRemoteAddr(r *http.Request) string {
-	addr := r.Header.Get("X-Forwarded-For")
-	if addr != "" {
-		return addr
+	addr := r.RemoteAddr
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		addresses := strings.Split(xff, ",")
+		xffAddr := strings.Trim(addresses[len(addresses)-1], " ")
+		addr = fmt.Sprintf("%s [%s]", addr, xffAddr)
 	}
-	return r.RemoteAddr
+	return addr
 }
 
 // BasicAuthHandler provides Basic Authorization.

@@ -19,6 +19,9 @@ const AssetsPrefix = "/.h2static-assets/"
 // CSSAsset defines the path of the CSS file.
 const CSSAsset = AssetsPrefix + "style.css"
 
+// LogoAsset defines the path of the logo.
+const LogoAsset = AssetsPrefix + "logo.svg"
+
 //go:embed template.html
 var dirListingTemplateText string
 
@@ -61,12 +64,13 @@ type osInfo struct {
 }
 
 type templateContext struct {
-	App          version.Version
-	AssetsPrefix string
-	CSSAsset     string
-	Dir          DirInfo
-	OS           osInfo
-	Sort         sortInfo
+	App       version.Version
+	OS        osInfo
+	Dir       DirInfo
+	BasePath  string
+	CSSAsset  string
+	LogoAsset string
+	Sort      sortInfo
 }
 
 // DirectoryListingTemplateConfig holds configuration for a DirectoryListingTemplate
@@ -130,8 +134,8 @@ func (t *DirectoryListingTemplate) getTemplateContext(path string, dir *File, so
 	}
 
 	sort.Slice(files, func(i, j int) bool { return sortFunc(i, j) == sortAsc })
-	entries := []DirEntryInfo{}
-	for _, f := range files {
+	entries := make([]DirEntryInfo, len(files))
+	for i, f := range files {
 		name := string(template.URL(f.Info.Name()))
 		size := f.Info.Size()
 		entry := DirEntryInfo{
@@ -142,25 +146,26 @@ func (t *DirectoryListingTemplate) getTemplateContext(path string, dir *File, so
 		if !f.Info.IsDir() {
 			entry.HumanSize = getHumanByteSize(size)
 		}
-		entries = append(entries, entry)
+		entries[i] = entry
 	}
 
 	return &templateContext{
 		App: version.App,
 		OS: osInfo{
-			OS:   strings.Title(runtime.GOOS),
+			OS:   runtime.GOOS,
 			Arch: runtime.GOARCH,
-		},
-		AssetsPrefix: t.Config.PathPrefix + AssetsPrefix,
-		CSSAsset:     t.Config.PathPrefix + CSSAsset,
-		Sort: sortInfo{
-			Column: sortColumn,
-			Asc:    sortAsc,
 		},
 		Dir: DirInfo{
 			Name:    path,
 			IsRoot:  path == "/",
 			Entries: entries,
+		},
+		BasePath:  t.Config.PathPrefix,
+		CSSAsset:  t.Config.PathPrefix + CSSAsset,
+		LogoAsset: t.Config.PathPrefix + LogoAsset,
+		Sort: sortInfo{
+			Column: sortColumn,
+			Asc:    sortAsc,
 		},
 	}, nil
 }

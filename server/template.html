@@ -5,14 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="{{ .App.Identifier }}">
-    <link rel="shortcut icon" type="image/svg+xml" href="{{ .AssetsPrefix }}logo.svg">
+    <link rel="shortcut icon" type="image/svg+xml" href="{{ .LogoAsset }}">
     <link rel="stylesheet" type="text/css" href="{{ .CSSAsset }}">
   </head>
   <body>
     <header>
       <h1>
-        <a class="logo" alt="{{ .App.Name }}" href="/">
-          <img src="{{ .AssetsPrefix }}logo.svg">
+        <a class="logo" href="{{ .BasePath }}/">
+          <img alt="{{ .App.Name }} logo" src="{{ .LogoAsset }}">
         </a>
         <span class="title">Index of <span class="path">{{ .Dir.Name }}</span></span>
       </h1>
@@ -23,18 +23,18 @@
           <a class="col col-name {{ if eq .Sort.Column "n" }}sorted{{ end -}}" href="?c=n&o={{- if .Sort.Asc }}d{{ else }}a{{ end -}}">Name</a>
           <a class="col col-size {{ if eq .Sort.Column "s" }}sorted{{ end -}}" href="?c=s&o={{- if .Sort.Asc }}d{{ else }}a{{ end -}}">Size</a>
         </div>
-        {{- if not .Dir.IsRoot -}}
+        {{ if not .Dir.IsRoot -}}
         <div class="row entry">
-          <a href=".." class="col col-name type-dir-up">..</a>
+          <a title="Up one directory" href=".." class="col col-name type-dir-up">..</a>
         </div>
-        {{- end -}}
+        {{- end }}
         {{- range $i, $entry := .Dir.Entries -}}
         {{- $i := inc $i -}}
         <div class="row entry">
           {{ if .IsDir -}}
-          <a href="{{ .Name }}/" class="col col-name type-dir" tabindex="{{ $i }}">{{ .Name }}/</a>
+          <a title="{{ .Name }}/" href="{{ .Name }}/" class="col col-name type-dir" tabindex="{{ $i }}">{{ .Name }}/</a>
           {{- else -}}
-          <a href="{{ .Name }}" class="col col-name type-file" tabindex="{{ $i }}">{{ .Name }}</a>
+          <a title="{{ .Name }}" href="{{ .Name }}" class="col col-name type-file" tabindex="{{ $i }}">{{ .Name }}</a>
           {{- end }}
           <span class="col col-size">
             {{ if eq .HumanSize.Suffix "" }}&mdash;{{ else }}{{ .HumanSize.Value }}{{ end -}}

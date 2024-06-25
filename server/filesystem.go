@@ -12,11 +12,10 @@ import (
 // FileSystem provides acess to files and directories under a certain root.
 // It can optionally optionally:
 //
-// - serve .htm(l) files for the corresponding path without suffix, if the
-//  original path is not found
-// - hide dotfiles
-// - allow access to file/directories outside the filesystem root via symlinks
-//
+//   - serve .htm(l) files for the corresponding path without suffix, if the
+//     original path is not found
+//   - hide dotfiles
+//   - allow access to file/directories outside the filesystem root via symlinks
 type FileSystem struct {
 	ResolveHTML          bool
 	HideDotFiles         bool
@@ -67,31 +66,32 @@ func (fs FileSystem) open(name string) (*os.File, error) {
 }
 
 func (fs FileSystem) newFile(name string) (*File, error) {
-	absPath, err := fs.absPath(name)
+	path, err := fs.resolvePath(filepath.Join(fs.Root, name))
 	if err != nil {
 		return nil, err
 	}
 	if !fs.AllowOutsideSymlinks {
-		if target, _ := os.Readlink(absPath); target != "" {
-			path, err := filepath.Abs(target)
-			if err != nil {
-				return nil, err
-			}
-			root, err := filepath.Abs(fs.Root)
-			if err != nil {
-				return nil, err
-			}
-			if !strings.HasPrefix(path, root) {
-				return nil, os.ErrPermission
-			}
+		root, err := fs.resolvePath(fs.Root)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(path, root) {
+			return nil, os.ErrPermission
 		}
 	}
-	return NewFile(absPath, fs.HideDotFiles)
+	return NewFile(path, fs.HideDotFiles)
 }
 
-// Return the absolute path of a name under the filesystem.
-func (fs FileSystem) absPath(name string) (string, error) {
-	return filepath.Abs(filepath.Join(fs.Root, name))
+func (fs FileSystem) resolvePath(path string) (string, error) {
+	path, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", err
+	}
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 // File is an entry of a  FileSystem entry.
@@ -137,7 +137,7 @@ func (f File) Readdir() ([]*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	files := []*File{}
+	files := make([]*File, 0, len(names))
 	for _, name := range names {
 		info, err := os.Stat(filepath.Join(f.absPath, name))
 		if err != nil {

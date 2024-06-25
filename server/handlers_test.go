@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -36,6 +37,24 @@ func (s *FileHandlerTestSuite) SetupTest() {
 	s.Mkdir("baz")
 }
 
+// HEAD requests are replied
+func (s *FileHandlerTestSuite) TestHEADRequest() {
+	r := httptest.NewRequest("HEAD", "/", nil)
+	w := httptest.NewRecorder()
+	s.handler.ServeHTTP(w, r)
+	response := w.Result()
+	s.Equal(http.StatusOK, response.StatusCode)
+}
+
+// Methods others than GET and HEAD are not allowed
+func (s *FileHandlerTestSuite) TestMethodNotAllowed() {
+	r := httptest.NewRequest("POST", "/", nil)
+	w := httptest.NewRecorder()
+	s.handler.ServeHTTP(w, r)
+	response := w.Result()
+	s.Equal(http.StatusMethodNotAllowed, response.StatusCode)
+}
+
 // HTML listing contains links to entries.
 func (s *FileHandlerTestSuite) TestListingHTML() {
 	r := httptest.NewRequest("GET", "/", nil)
@@ -45,9 +64,9 @@ func (s *FileHandlerTestSuite) TestListingHTML() {
 	s.Equal(http.StatusOK, response.StatusCode)
 	s.Equal("text/html; charset=utf-8", response.Header.Get("Content-Type"))
 	content := w.Body.String()
-	s.Contains(content, `<a href="bar" class="col col-name type-file" tabindex="1">bar</a>`)
-	s.Contains(content, `<a href="baz/" class="col col-name type-dir" tabindex="2">baz/</a>`)
-	s.Contains(content, `<a href="foo" class="col col-name type-file" tabindex="3">foo</a>`)
+	s.Contains(content, `<a title="bar" href="bar" class="col col-name type-file" tabindex="1">bar</a>`)
+	s.Contains(content, `<a title="baz/" href="baz/" class="col col-name type-dir" tabindex="2">baz/</a>`)
+	s.Contains(content, `<a title="foo" href="foo" class="col col-name type-file" tabindex="3">foo</a>`)
 	// The root directory doesn't contain a link up
 	s.NotContains(content, `<a href=".." class="col col-name type-dir-up">..</a>`)
 }
@@ -73,7 +92,7 @@ func (s *FileHandlerTestSuite) TestListingHTMLSubdir() {
 	s.Equal(http.StatusOK, response.StatusCode)
 	s.Equal("text/html; charset=utf-8", response.Header.Get("Content-Type"))
 	content := w.Body.String()
-	s.Contains(content, `<a href=".." class="col col-name type-dir-up">..</a>`)
+	s.Contains(content, `<a title="Up one directory" href=".." class="col col-name type-dir-up">..</a>`)
 }
 
 // File content is served.
@@ -161,7 +180,7 @@ func (s *FileHandlerTestSuite) TestListingJSON() {
 	s.Equal(http.StatusOK, response.StatusCode)
 	s.Equal("application/json", response.Header.Get("Content-Type"))
 	decoder := json.NewDecoder(w.Body)
-	content := server.DirInfo{}
+	var content server.DirInfo
 	decoder.Decode(&content)
 }
 
@@ -176,7 +195,7 @@ func (s *FileHandlerTestSuite) TestListingJSONSortDesc() {
 	s.Equal(http.StatusOK, response.StatusCode)
 	s.Equal("application/json", response.Header.Get("Content-Type"))
 	decoder := json.NewDecoder(w.Body)
-	content := server.DirInfo{}
+	var content server.DirInfo
 	decoder.Decode(&content)
 	s.Equal(
 		server.DirInfo{
@@ -210,7 +229,7 @@ func (s *FileHandlerTestSuite) TestListingJSONSortSize() {
 	s.Equal(http.StatusOK, response.StatusCode)
 	s.Equal("application/json", response.Header.Get("Content-Type"))
 	decoder := json.NewDecoder(w.Body)
-	content := server.DirInfo{}
+	var content server.DirInfo
 	decoder.Decode(&content)
 	s.Equal(
 		server.DirInfo{
@@ -365,10 +384,12 @@ func (s *LoggingHandlerTestSuite) TestLogRequest() {
 // Requests are logged with the original request IP.
 func (s *LoggingHandlerTestSuite) TestLogRequestWithForward() {
 	r := httptest.NewRequest("GET", "/path", nil)
-	r.Header.Add("X-Forwarded-For", "1.2.3.4")
+	r.Header.Add("X-Forwarded-For", "1.1.1.1, 8.8.8.8, 1.2.3.4")
 	w := httptest.NewRecorder()
 	s.handler.ServeHTTP(w, r)
-	s.Contains(s.Logs.String(), "HTTP/1.1 GET /path 0 404 19 1.2.3.4")
+	s.Contains(
+		s.Logs.String(),
+		fmt.Sprintf("HTTP/1.1 GET /path 0 404 19 %s [1.2.3.4]", r.RemoteAddr))
 	response := w.Result()
 	s.Equal(http.StatusNotFound, response.StatusCode)
 }

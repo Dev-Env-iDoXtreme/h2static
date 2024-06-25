@@ -1,3 +1,4 @@
+// Package server provides an HTTP server for serving static files.
 package server
 
 import (
@@ -21,6 +22,7 @@ type StaticServerConfig struct {
 	Addr                    string
 	AllowOutsideSymlinks    bool
 	CSS                     string
+	DebugAddr               string
 	Dir                     string
 	DisableH2               bool
 	DisableIndex            bool
@@ -123,7 +125,8 @@ func (s *StaticServer) getServer() (*http.Server, error) {
 	// get requested every time
 	assetsHandler := AddHeadersHandler(
 		map[string]string{"Cache-Control": fmt.Sprintf("public, max-age=%d", 24*60*60)},
-		AssetsHandler())
+		AssetsHandler(),
+	)
 	mux.Handle(AssetsPrefix, http.StripPrefix(AssetsPrefix, assetsHandler))
 
 	// optionally, serve CSS from the specified file instead of the builtin assets
@@ -161,9 +164,10 @@ func (s *StaticServer) getServer() (*http.Server, error) {
 	// always add server version to headers
 	handler = AddHeadersHandler(
 		map[string]string{"Server": version.App.Identifier()},
-		handler)
+		handler,
+	)
 
-	tlsNextProto := map[string]func(*http.Server, *tls.Conn, http.Handler){}
+	tlsNextProto := make(map[string]func(*http.Server, *tls.Conn, http.Handler))
 	if !s.Config.DisableH2 {
 		// Setting to nil means to use the default (which is H2-enabled)
 		tlsNextProto = nil
@@ -178,10 +182,8 @@ func (s *StaticServer) getServer() (*http.Server, error) {
 
 // Run starts the server.
 func (s *StaticServer) Run() error {
-	if s.Config.Log {
-		log.Printf("Starting %v %s server on %s, serving path %s",
-			version.App, strings.ToUpper(s.Scheme()), s.Config.Addr, s.Config.Dir)
-	}
+	log.Printf("Starting %v %s server on %s, serving path %s",
+		version.App, strings.ToUpper(s.Scheme()), s.Config.Addr, s.Config.Dir)
 
 	return s.runServer()
 }
@@ -206,6 +208,31 @@ func (s *StaticServer) runServer() error {
 			log.Fatal(err)
 		}
 	}()
+
+	if s.Config.DebugAddr != "" {
+		log.Printf("Serving debug URLs on %s", s.Config.DebugAddr)
+
+		var handler http.Handler = newDebugMux()
+		// optionally, enable logging
+		if s.Config.Log {
+			handler = &LoggingHandler{Handler: handler}
+		}
+		// always add server version to headers
+		handler = AddHeadersHandler(
+			map[string]string{"Server": version.App.Identifier()},
+			handler,
+		)
+
+		go func() {
+			debugServer := http.Server{
+				Addr:    s.Config.DebugAddr,
+				Handler: handler,
+			}
+			if err := debugServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatal(err)
+			}
+		}()
+	}
 	<-stop
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

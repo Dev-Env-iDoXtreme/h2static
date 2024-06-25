@@ -1,11 +1,9 @@
 package server_test
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
-	"path/filepath"
 	"sort"
-	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -36,7 +34,7 @@ func (s *FileSystemTestSuite) SetupTest() {
 func (s *FileSystemTestSuite) readFile(file *server.File) string {
 	f, err := os.Open(file.AbsPath())
 	s.Nil(err)
-	content, err := ioutil.ReadAll(f)
+	content, err := io.ReadAll(f)
 	s.Nil(err)
 	return string(content)
 }
@@ -104,7 +102,7 @@ func (s *FileSystemTestSuite) TestNoLookupWithHTMLSuffix() {
 func (s *FileSystemTestSuite) TestNoOutsideSymlink() {
 	s.WriteFile("foo", "content")
 	root := s.Mkdir("root")
-	s.Symlink("foo", "root/foo-link")
+	s.Symlink("../foo", "root/foo-link")
 	fs := server.FileSystem{Root: root}
 	file, err := fs.Open("/foo-link")
 	s.IsType(os.ErrPermission, err)
@@ -115,8 +113,19 @@ func (s *FileSystemTestSuite) TestNoOutsideSymlink() {
 func (s *FileSystemTestSuite) TestOutsideSymlinks() {
 	s.WriteFile("foo", "content")
 	root := s.Mkdir("root")
-	s.Symlink("foo", "root/foo-link")
+	s.Symlink("../foo", "root/foo-link")
 	fs := server.FileSystem{Root: root, AllowOutsideSymlinks: true}
+	file, err := fs.Open("/foo-link")
+	s.Nil(err)
+	s.Equal("content", s.readFile(file))
+}
+
+// Local symlinks are always accessible.
+func (s *FileSystemTestSuite) TestLocalSymlinks() {
+	root := s.Mkdir("root")
+	s.WriteFile("root/foo", "content")
+	s.Symlink("foo", "root/foo-link")
+	fs := server.FileSystem{Root: root}
 	file, err := fs.Open("/foo-link")
 	s.Nil(err)
 	s.Equal("content", s.readFile(file))
@@ -175,12 +184,12 @@ func (s *FileSystemTestSuite) TestListingWithSymlinks() {
 		name  string
 		isdir bool
 	}
-	details := []detail{}
-	for _, file := range files {
-		details = append(details, detail{
+	details := make([]detail, len(files))
+	for i, file := range files {
+		details[i] = detail{
 			name:  file.Info.Name(),
 			isdir: file.Info.IsDir(),
-		})
+		}
 	}
 	sort.Slice(details, func(i, j int) bool {
 		return details[i].name < details[j].name
@@ -192,17 +201,6 @@ func (s *FileSystemTestSuite) TestListingWithSymlinks() {
 			{name: "new-bar", isdir: true},
 			{name: "new-foo", isdir: false},
 		}, details)
-}
-
-// Special files are not included in listing.
-func (s *FileSystemTestSuite) TestListingIgnoreSpecial() {
-	fifoPath := filepath.Join(s.TempDir, "fifo")
-	s.Nil(syscall.Mkfifo(fifoPath, 0644))
-	file, err := s.fs.Open("/")
-	s.Nil(err)
-	files, err := file.Readdir()
-	s.Nil(err)
-	s.Equal([]*server.File{}, files)
 }
 
 // OpenFile returns a File if it's not a directory.

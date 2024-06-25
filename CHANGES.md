@@ -1,3 +1,56 @@
+v2.4.8 - 2024-01-11
+===================
+
+* Rework path expansion fix to ensure filesystem root is also expanded.
+
+
+v2.4.7 - 2024-01-10
+===================
+
+* Fix issue with path expansion for relative symlinks, leading to Unauthorized
+  errors with symlinks targeted to paths inside the served tree.
+
+
+v2.4.6 - 2023-02-25
+===================
+
+* Change debug option to ``-debug-addr`` to allow specifying address and port.
+* Return Bad request error for requests other than GET/HEAD.
+* Enable all checks with staticcheck.
+
+
+v2.4.5 - 2023-01-13
+===================
+
+* Add `-debug-port` option to serve debug URLs on localhost
+* Always print startup message
+* [gh] Run tests on multiple OSes
+* Switch to `staticcheck` linter
+
+
+v2.4.4 - 2022-11-12
+===================
+
+* Fix HTML template indentation
+* [snap] Switch to core22 base
+* [snap] update metadata
+* [doc] document Let's Encrypt setup
+
+
+v2.4.3 - 2021-12-20
+===================
+
+* Fix redirect link on logo
+* Log both local and `X-Forwarded-For` address
+
+
+v2.4.2 - 2021-12-05
+===================
+
+* Log version on startup
+* Add `-version` option
+
+
 v2.4.1 - 2021-08-02
 ===================
 
